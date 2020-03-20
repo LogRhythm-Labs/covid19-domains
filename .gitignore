@@ -45,3 +45,7 @@ $RECYCLE.BIN/
 Network Trash Folder
 Temporary Items
 .apdisk
+
+# Ignore output files from script
+covid_domains.txt
+covid-2020*

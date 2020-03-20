@@ -19,6 +19,7 @@
 # ======= Globals/Parameters/Etc.
 
 # Default path and filename for the LR list file that we'll create (used if no args specified)
+
 $outListFile = "C:\Program Files\LogRhythm\LogRhythm Job Manager\config\list_import"
 $outListFileName = "covid_domains.txt"
 
@@ -78,16 +79,59 @@ $csv = Import-Csv -Path "./${covidLatest}"
 
 $covidEntries = $($csv | Where { $_.Query -ne "virus" } | Select -Unique Match)
 
+# Create a list object that will contain the final/master list of entries
+
 $covidList = New-Object System.Collections.Generic.List[string]
+
+# Set up an array of prefixes we'll add to each entry
+
+$prefixList = "http://","https://"
 
 foreach ($entry in $covidEntries)
 {
     $entryMain = $entry.Match
-    $entryMod1 = $("http://" + $entryMain)
-    $entryMod2 = $("https://" + $entryMain)
-    $covidList.Add($entryMain)
-    $covidList.Add($entryMod1)
-    $covidList.Add($entryMod2)
+
+    # Filter out or modify certain entries for compatibility with LR (e.x. "*.domain.com" won't work in a list)
+    #
+    # Current Filters:
+    # Domains beginning with "*."
+    # Any instance of the ASCII escape "\032", seen alone or with a complete/incomplete IP address in front of it
+
+    if ($entryMain -match "(?:^\*\.|\\032)")
+    {
+        # The entry contains an illegal char/strange formatting/etc. and needs to be dealt with
+
+        if ($entryMain -match "^\*\.")
+        {
+            $entryMain = [Regex]::Replace($entryMain,"^\*\.","www.",[System.Text.RegularExpressions.RegexOptions]::None)
+        }
+
+        if ($entryMain -match "\d+\.\d+\.\d+(?:\.\d+)?\\032")
+        {
+            $entryMain = [Regex]::Replace($entryMain,"\d+\.\d+\.\d+(?:\.\d+)?\\032","",[System.Text.RegularExpressions.RegexOptions]::None)
+        }
+
+        if ($entryMain -match "\\032")
+        {
+            $entryMain = [Regex]::Replace($entryMain,"\\032","",[System.Text.RegularExpressions.RegexOptions]::None)
+        }
+
+        $covidList.Add($entryMain)
+        foreach ($p in $prefixList)
+        {
+            $covidList.Add($($p+$entryMain))
+        }
+    }
+    else
+    {
+        # The entry didn't contain any illegal chars, etc. so we proceed with adding it to the main list
+
+        $covidList.Add($entryMain)
+        foreach ($p in $prefixList)
+        {
+            $covidList.Add($($p+$entryMain))
+        }
+    }
 }
 
 Write-Host -ForegroundColor Green "Completed building domain list"
@@ -97,7 +141,8 @@ Write-Host -ForegroundColor Green "Completed building domain list"
 
 foreach ($cl in $covidList)
 {
-    echo $cl >> $outputFullPath
+    #echo $cl >> $outputFullPath
+    Write-Output -InputObject $cl | Out-File -FilePath $outputFullPath -Append
 }
 
 Write-Host -ForegroundColor Green "Wrote LR list text file to: ${outputFullPath}"
