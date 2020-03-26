@@ -1,6 +1,8 @@
 ﻿param(
     [Parameter()][string]$OutputFilePath,
-    [Parameter()][string]$OutputFileName
+    [Parameter()][string]$OutputFileName,
+    [Parameter()][string]$TempDir,
+    [Parameter()][switch]$DoPrepend
 )
 
 # ================= COVID-19 Malicious Domain List Importer PowerShell Script =================
@@ -21,7 +23,18 @@
 # Default path and filename for the LR list file that we'll create (used if no args specified)
 
 $outListFile = "C:\Program Files\LogRhythm\LogRhythm Job Manager\config\list_import"
+$covidTmpDir = "C:\Program Files\LogRhythm\LogRhythm Job Manager\config\covid_temp"
 $outListFileName = "covid_domains.txt"
+
+if ($TempDir -ne "")
+{
+    $covidTmpDir = $TempDir
+}
+
+if ([System.IO.Directory]::Exists($covidTmpDir) -eq $false)
+{
+    [System.IO.Directory]::CreateDirectory($covidTmpDir) 1> $null
+}
 
 if ($OutputFilePath -ne "")
 {
@@ -34,6 +47,7 @@ if ($OutputFileName -ne "")
 }
 
 $outputFullPath = [System.IO.Path]::Combine($outListFile,$outListFileName)
+$outputTempFullPath = [System.IO.Path]::Combine($covidTmpDir,$outlistFileName)
 
 # ======= Pull XML File, find latest CoVid list
 
@@ -67,12 +81,14 @@ if ($covidLatest -eq "none")
 }
 
 $latestUri = $($uri + $covidLatest)
-
-$respCovidFile = Invoke-WebRequest -Uri $latestUri -Method Get -OutFile "./${covidLatest}" -ErrorAction Ignore
+$covidLatestPath = [System.IO.Path]::Combine($covidTmpDir,$covidLatest)
+#$respCovidFile = Invoke-WebRequest -Uri $latestUri -Method Get -OutFile "./${covidLatest}" -ErrorAction Ignore
+$respCovidFile = Invoke-WebRequest -Uri $latestUri -Method Get -OutFile $covidLatestPath -ErrorAction Ignore
 
 # To do: Need to add error handling here in case web req fails
 
-$csv = Import-Csv -Path "./${covidLatest}"
+#$csv = Import-Csv -Path "./${covidLatest}"
+$csv = Import-Csv -Path $covidLatestPath
 
 # Test filter that also only outputs domains with "flu" in the name; generates a much shorter list, helpful for testing purposes
 #$covidEntries = $($csv | Where { $_.Query -ne "virus" -and $_.Match -match "flu" } | Select -Unique Match)
@@ -117,9 +133,12 @@ foreach ($entry in $covidEntries)
         }
 
         $covidList.Add($entryMain)
-        foreach ($p in $prefixList)
+        if ($DoPrepend)
         {
-            $covidList.Add($($p+$entryMain))
+            foreach ($p in $prefixList)
+            {
+                $covidList.Add($($p+$entryMain))
+            }
         }
     }
     else
@@ -127,9 +146,13 @@ foreach ($entry in $covidEntries)
         # The entry didn't contain any illegal chars, etc. so we proceed with adding it to the main list
 
         $covidList.Add($entryMain)
-        foreach ($p in $prefixList)
+
+        if ($DoPrepend)
         {
-            $covidList.Add($($p+$entryMain))
+            foreach ($p in $prefixList)
+            {
+                $covidList.Add($($p+$entryMain))
+            }
         }
     }
 }
@@ -137,13 +160,21 @@ foreach ($entry in $covidEntries)
 Write-Host -ForegroundColor Green "Completed building domain list"
 
 # Delete old list
-[System.IO.File]::Delete($outputFullPath)
+#[System.IO.File]::Delete($outputFullPath)
+[System.IO.File]::Delete($outputTempFullPath)
 
 foreach ($cl in $covidList)
 {
     #echo $cl >> $outputFullPath
-    Write-Output -InputObject $cl | Out-File -FilePath $outputFullPath -Append
+    #Write-Output -InputObject $cl | Out-File -FilePath $outputFullPath -Append
+    Write-Output -InputObject $cl | Out-File -FilePath $outputTempFullPath -Append
 }
 
-Write-Host -ForegroundColor Green "Wrote LR list text file to: ${outputFullPath}"
+#Write-Host -ForegroundColor Green "Wrote LR list text file to: ${outputFullPath}"
+Write-Host -ForegroundColor Green "Wrote LR list text file to temp folder: ${outputTempFullPath}"
+
+[System.IO.File]::Copy($outputTempFullPath,$outputFullPath)
+Write-Host -ForegroundColor Green "Copied list text file to list auto-import directory"
+
+
 Write-Host -ForegroundColor Green "Done!"
