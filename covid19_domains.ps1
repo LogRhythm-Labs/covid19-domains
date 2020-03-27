@@ -7,20 +7,25 @@
 
 # ================= COVID-19 Malicious Domain List Importer PowerShell Script =================
 #
-# A PowerShell script that automatically pulls the latest copy of a list of recent malicious COVID-19-related domains and builds a list file for import within the LogRhythm SIEM
+#   A PowerShell script that automatically pulls the latest copy of a RiskIQ list of recent malicious COVID-19-related domains and builds a list file for import within the LogRhythm SIEM
 #
-# Copyright March 2020 - LogRhythm Labs/LogRhythm Office of the CISO - LogRhythm, Inc. 
+#   Script Copyright March 2020 - LogRhythm Labs/LogRhythm Office of the CISO - LogRhythm, Inc.
+#
+#   Domain/list data provided by RiskIQ - Copyright March 2020/All Rights Reserved RiskIQ. The data provided by RiskIQ is a free service/data set and may be terminated or removed at any time without warning
+
 
 # ======= Example usage:
+#
+#   If no custom output file path and file name are specified, the script will write the output file to the default LR list auto import directory
+#
+#   PS> covid19_domains.ps1 -OutputFileName "covid_custom_list_name.txt"
+#   PS> covid19_domains.ps1 -OutputFilePath "C:\Users\zack.rowland\Documents\lists" -OutputFileName "covid_test_list.txt"
 
-# If no custom output file path and file name are specified, the script will write the output file to the default LR list auto import directory
-
-# PS> covid19_domains.ps1 -OutputFileName "covid_custom_list_name.txt"
-# PS> covid19_domains.ps1 -OutputFilePath "C:\Users\zack.rowland\Documents\lists" -OutputFileName "covid_test_list.txt"
 
 # ======= Globals/Parameters/Etc.
+#
+#   Default path and filename for the LR list file that we'll create (used if no args specified)
 
-# Default path and filename for the LR list file that we'll create (used if no args specified)
 
 $outListFile = "C:\Program Files\LogRhythm\LogRhythm Job Manager\config\list_import"
 $covidTmpDir = "C:\Program Files\LogRhythm\LogRhythm Job Manager\config\covid_temp"
@@ -82,12 +87,10 @@ if ($covidLatest -eq "none")
 
 $latestUri = $($uri + $covidLatest)
 $covidLatestPath = [System.IO.Path]::Combine($covidTmpDir,$covidLatest)
-#$respCovidFile = Invoke-WebRequest -Uri $latestUri -Method Get -OutFile "./${covidLatest}" -ErrorAction Ignore
 $respCovidFile = Invoke-WebRequest -Uri $latestUri -Method Get -OutFile $covidLatestPath -ErrorAction Ignore
 
 # To do: Need to add error handling here in case web req fails
 
-#$csv = Import-Csv -Path "./${covidLatest}"
 $csv = Import-Csv -Path $covidLatestPath
 
 # Test filter that also only outputs domains with "flu" in the name; generates a much shorter list, helpful for testing purposes
@@ -99,7 +102,7 @@ $covidEntries = $($csv | Where { $_.Query -ne "virus" } | Select -Unique Match)
 
 $covidList = New-Object System.Collections.Generic.List[string]
 
-# Set up an array of prefixes we'll add to each entry
+# Set up an array of prefixes we'll add to each entry (only used if the "-DoPrepend" flag is enabled at run time)
 
 $prefixList = "http://","https://"
 
@@ -160,18 +163,19 @@ foreach ($entry in $covidEntries)
 Write-Host -ForegroundColor Green "Completed building domain list"
 
 # Delete old list
-#[System.IO.File]::Delete($outputFullPath)
+
 [System.IO.File]::Delete($outputTempFullPath)
+
+# Write final list file
 
 foreach ($cl in $covidList)
 {
-    #echo $cl >> $outputFullPath
-    #Write-Output -InputObject $cl | Out-File -FilePath $outputFullPath -Append
     Write-Output -InputObject $cl | Out-File -FilePath $outputTempFullPath -Append
 }
 
-#Write-Host -ForegroundColor Green "Wrote LR list text file to: ${outputFullPath}"
 Write-Host -ForegroundColor Green "Wrote LR list text file to temp folder: ${outputTempFullPath}"
+
+# Copy final list file to LR list auto import directory
 
 [System.IO.File]::Copy($outputTempFullPath,$outputFullPath)
 Write-Host -ForegroundColor Green "Copied list text file to list auto-import directory"
