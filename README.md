@@ -1,6 +1,12 @@
-## COVID-19 Malicious Domain List Importer
+# COVID-19 Malicious Domain List Importer
 
-#### LogRhythm Labs | LogRhythm Office of the CISO | March 2020
+### LogRhythm Labs/LogRhythm OCISO | March 2020
+
+*PowerShell script © 2020 LogRhythm, Inc.*
+
+*Covid Domain Data © 2020 RiskIQ, All Rights Reserved. All data provided by RiskIQ is provided "as is" without warranty or guarantees of any kind. Access to the RiskIQ data may be terminated at any time without warning.*
+
+---
 
 A PowerShell script that automatically pulls the most recent list of malicious COVID-19-related domains and builds a list file for import within the LogRhythm SIEM.
 
