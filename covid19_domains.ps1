@@ -64,7 +64,7 @@ $dateLatest = [System.DateTime]::MinValue
 $covidLatest = "none"
 foreach ($c in $xmlroot.Contents)
 {
-    if ($c.Key -match "covid.*")
+    if ($c.Key -match "covid-.*")
     {
         $tmpCoName = $c.Key
         $tmpDateStr = $c.LastModified
